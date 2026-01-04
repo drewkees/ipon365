@@ -42,12 +42,13 @@ export default function Ipon365Auth() {
     setAuthError(null);
 
     try {
+        const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
       if (authView === 'signup') {
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin
+            emailRedirectTo: redirectUrl
           }
         });
         if (error) throw error;
