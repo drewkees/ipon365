@@ -32,41 +32,62 @@ const formatPeso = (amount: number) => `₱${amount}`;
 export function Calendar({ rolls, onDateSelect, selectedDate }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+  const today = new Date();
+  const currentYear = today.getFullYear(); // 🔹 current year dynamically
+
+  // Start and end of month/week for calendar
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const calendarStart = startOfWeek(monthStart);
   const calendarEnd = endOfWeek(monthEnd);
-  
-  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
-  const today = new Date();
+  // Filter days to only the current year
+  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd }).filter(
+    day => day.getFullYear() === currentYear
+  );
 
+  // Get roll for a specific date
   const getRollForDate = (date: Date): number | null => {
     const dateStr = format(date, "yyyy-MM-dd");
-    const roll = rolls.find(r => r.roll_date === dateStr);
+    const roll = rolls.find(r => {
+      const rollDate = new Date(r.roll_date);
+      return r.roll_date === dateStr && rollDate.getFullYear() === currentYear;
+    });
     return roll ? roll.roll_number : null;
   };
 
-  const handlePrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
-  const handleNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+  // Navigation buttons (cannot go outside current year)
+  const handlePrevMonth = () => {
+    const prevMonth = subMonths(currentMonth, 1);
+    if (prevMonth.getFullYear() >= currentYear) {
+      setCurrentMonth(prevMonth);
+    }
+  };
+
+  const handleNextMonth = () => {
+    const nextMonth = addMonths(currentMonth, 1);
+    if (nextMonth.getFullYear() <= currentYear) {
+      setCurrentMonth(nextMonth);
+    }
+  };
 
   return (
     <div className="w-full max-w-md mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 px-2">
-        <button 
+        <button
           onClick={handlePrevMonth}
           className="p-3 rounded-full bg-card shadow-soft hover:bg-secondary transition-all active:scale-95"
           aria-label="Previous month"
         >
           <ChevronLeft className="w-5 h-5 text-foreground" />
         </button>
-        
+
         <h2 className="text-xl font-display font-semibold text-foreground">
           {format(currentMonth, "MMMM yyyy")}
         </h2>
-        
-        <button 
+
+        <button
           onClick={handleNextMonth}
           className="p-3 rounded-full bg-card shadow-soft hover:bg-secondary transition-all active:scale-95"
           aria-label="Next month"
