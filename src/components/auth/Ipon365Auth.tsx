@@ -244,24 +244,10 @@ export default function Ipon365Auth() {
             )}
           </div>
 
-          {/* Feature cards */}
-          <div className="features">
-            <div className="feature-card">
-              <div className="feature-icon">🎯</div>
-              <h3>Daily Goals</h3>
-              <p>Save a random amount each day</p>
+            {/* Footer copyright */}
+            <div className="auth-footer-note">
+                Created by DrewKees. All rights reserved.
             </div>
-            <div className="feature-card">
-              <div className="feature-icon">📊</div>
-              <h3>Track Progress</h3>
-              <p>Watch your savings grow</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">🎉</div>
-              <h3>Stay Motivated</h3>
-              <p>Build lasting savings habits</p>
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -273,6 +259,7 @@ export default function Ipon365Auth() {
 }
 
 const styles = `
+
   * {
     margin: 0;
     padding: 0;
@@ -314,6 +301,12 @@ const styles = `
     animation: float 15s infinite ease-in-out;
   }
 
+   .auth-footer-note {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 16px;
+  }
   .coin-1 { top: 10%; left: 10%; animation-delay: 0s; }
   .coin-2 { top: 20%; right: 15%; animation-delay: 2s; }
   .coin-3 { bottom: 30%; left: 20%; animation-delay: 4s; }
