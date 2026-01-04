@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Dices, X, Sparkles } from "lucide-react";
+import { Dices, X, Sparkles, PiggyBank } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface RollModalProps {
@@ -12,6 +12,15 @@ interface RollModalProps {
   availableCount: number;
   isLoading: boolean;
 }
+
+const formatPeso = (amount: number) => {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
 
 export function RollModal({ 
   isOpen, 
@@ -84,7 +93,7 @@ export function RollModal({
 
           {/* Number display area */}
           <div className={cn(
-            "relative mx-auto w-36 h-36 rounded-2xl flex items-center justify-center mb-6 transition-all duration-500",
+            "relative mx-auto w-40 h-40 rounded-2xl flex flex-col items-center justify-center mb-6 transition-all duration-500",
             hasNumber ? "gradient-primary shadow-glow" : "bg-secondary",
             isRolling && "animate-pulse-glow"
           )}>
@@ -95,8 +104,8 @@ export function RollModal({
                 "text-center",
                 showResult || existingNumber ? "animate-roll-number" : ""
               )}>
-                <span className="text-5xl font-display font-bold text-primary-foreground">
-                  {displayNumber}
+                <span className="text-3xl font-display font-bold text-primary-foreground">
+                  {formatPeso(displayNumber)}
                 </span>
               </div>
             ) : (
@@ -116,14 +125,14 @@ export function RollModal({
           {existingNumber !== null ? (
             <div className="text-center">
               <p className="text-sm text-muted-foreground">
-                This date already has a number assigned
+                You already saved {formatPeso(existingNumber)} this day!
               </p>
             </div>
           ) : rolledNumber !== null ? (
             <div className="text-center space-y-3">
               <p className="text-success font-medium flex items-center justify-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                Number saved!
+                <PiggyBank className="w-4 h-4" />
+                Savings recorded!
               </p>
               <button
                 onClick={onClose}
@@ -145,11 +154,11 @@ export function RollModal({
                 )}
               >
                 <Dices className="w-6 h-6" />
-                {isRolling ? "Rolling..." : "Roll Number"}
+                {isRolling ? "Rolling..." : "Roll Savings"}
               </button>
               
               <p className="text-center text-sm text-muted-foreground">
-                {availableCount} numbers remaining
+                {availableCount} amounts remaining
               </p>
             </div>
           )}
