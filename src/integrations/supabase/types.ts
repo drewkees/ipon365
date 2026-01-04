@@ -20,18 +20,25 @@ export type Database = {
           id: string
           roll_date: string
           roll_number: number
+           user_id?: string     
+        user_email?: string 
+  }
         }
         Insert: {
           created_at?: string
           id?: string
           roll_date: string
           roll_number: number
+          user_id?: string     
+        user_email?: string 
         }
         Update: {
           created_at?: string
           id?: string
           roll_date?: string
           roll_number?: number
+          user_id?: string     
+        user_email?: string 
         }
         Relationships: []
       }

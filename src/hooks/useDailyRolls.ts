@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -20,13 +20,56 @@ export function useDailyRolls() {
 
   // Get current user
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const getUserSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setUserId(session?.user?.id || null);
-    });
+    };
+    
+    getUserSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUserId(session?.user?.id || null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch rolls for current user - REMOVE useCallback here
-  const fetchRolls = async () => {
+  // Fetch rolls - separate effect to avoid circular dependency
+  useEffect(() => {
+    const fetchRolls = async () => {
+      if (!userId) {
+        setIsLoading(false);
+        setRolls([]);
+        return;
+      }
+      
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from("daily_rolls")
+          .select("*")
+          .eq("user_id", userId)
+          .order("roll_date", { ascending: true });
+
+        if (error) throw error;
+        setRolls(data || []);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching rolls:", err);
+        setError("Failed to load data");
+        toast.error("Failed to load calendar data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRolls();
+  }, [userId]); // Only depend on userId
+
+  // Refetch function for manual refresh
+  const refetch = async () => {
     if (!userId) return;
     
     try {
@@ -36,25 +79,23 @@ export function useDailyRolls() {
         .select("*")
         .eq("user_id", userId)
         .order("roll_date", { ascending: true });
-        
 
       if (error) throw error;
       setRolls(data || []);
       setError(null);
     } catch (err) {
       console.error("Error fetching rolls:", err);
-      setError("Failed to load data");
       toast.error("Failed to load calendar data");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getUsedNumbers = useCallback((): Set<number> => {
+  const getUsedNumbers = (): Set<number> => {
     return new Set(rolls.map(r => r.roll_number));
-  }, [rolls]);
+  };
 
-  const getAvailableNumbers = useCallback((): number[] => {
+  const getAvailableNumbers = (): number[] => {
     const used = getUsedNumbers();
     const available: number[] = [];
     for (let i = 1; i <= 365; i++) {
@@ -63,9 +104,9 @@ export function useDailyRolls() {
       }
     }
     return available;
-  }, [getUsedNumbers]);
+  };
 
-  const rollNumber = useCallback(async (date: Date): Promise<number | null> => {
+  const rollNumber = async (date: Date): Promise<number | null> => {
     if (!userId) {
       toast.error("You must be logged in to roll");
       return null;
@@ -99,7 +140,7 @@ export function useDailyRolls() {
       if (error) {
         if (error.code === "23505") {
           toast.error("This date or number is already taken!");
-          await fetchRolls();
+          await refetch();
           return null;
         }
         throw error;
@@ -113,21 +154,13 @@ export function useDailyRolls() {
       toast.error("Failed to save. Please try again.");
       return null;
     }
-  }, [userId, getAvailableNumbers]); // Remove fetchRolls from dependencies
+  };
 
-  const getRollForDate = useCallback((date: Date): number | null => {
+  const getRollForDate = (date: Date): number | null => {
     const dateStr = format(date, "yyyy-MM-dd");
     const roll = rolls.find(r => r.roll_date === dateStr);
     return roll ? roll.roll_number : null;
-  }, [rolls]);
-
-  // Use userId as dependency instead of fetchRolls
-  useEffect(() => {
-    if (userId) {
-      fetchRolls();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]); // Only depend on userId
+  };
 
   return {
     rolls,
@@ -136,6 +169,6 @@ export function useDailyRolls() {
     rollNumber,
     getRollForDate,
     getAvailableNumbers,
-    refetch: fetchRolls,
+    refetch,
   };
 }
