@@ -9,36 +9,44 @@ import { PiggyBank, Loader2, LogOut } from "lucide-react";
 
 const Index = () => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false); // important
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  const { 
-    rolls, 
-    isLoading, 
-    rollNumber, 
-    getRollForDate,
-    getAvailableNumbers 
-  } = useDailyRolls();
 
-  // Check authentication
+  const { rolls, isLoading, rollNumber, getRollForDate, getAvailableNumbers } = useDailyRolls();
+
+  // --- Check authentication and subscribe to auth changes ---
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user || null);
-      setLoading(false);
-    });
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setAuthChecked(true);
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user || null);
-      }
-    );
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setAuthChecked(true); // make sure authChecked is set on auth changes too
+    });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  // --- Logout ---
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setUser(null);
+        return;
+      }
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setUser(null);
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
   };
 
   const handleDateSelect = (date: Date) => {
@@ -59,8 +67,8 @@ const Index = () => {
   const existingNumber = selectedDate ? getRollForDate(selectedDate) : null;
   const availableCount = getAvailableNumbers().length;
 
-  // Show loading while checking auth
-  if (loading) {
+  // --- Guard render until authChecked ---
+  if (!authChecked) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
@@ -68,12 +76,11 @@ const Index = () => {
     );
   }
 
-  // Show login if not authenticated
   if (!user) {
     return <Ipon365Auth />;
   }
 
-  // Show loading while fetching rolls
+  // --- Loading rolls ---
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -85,9 +92,9 @@ const Index = () => {
     );
   }
 
+  // --- Main content ---
   return (
     <div className="min-h-screen bg-background">
-      {/* Header with Sign Out */}
       <header className="pt-8 pb-6 px-4">
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-between mb-4">
@@ -116,15 +123,10 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main content */}
       <main className="px-4 pb-8 space-y-6">
         <StatsBar rolls={rolls} totalDays={365} />
         <div className="bg-card rounded-2xl shadow-soft p-4">
-          <Calendar 
-            rolls={rolls} 
-            onDateSelect={handleDateSelect}
-            selectedDate={selectedDate}
-          />
+          <Calendar rolls={rolls} onDateSelect={handleDateSelect} selectedDate={selectedDate} />
         </div>
       </main>
 
