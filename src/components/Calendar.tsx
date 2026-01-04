@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+  addMonths,
+  subMonths,
+  startOfWeek,
+  endOfWeek
+} from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface DailyRoll {
@@ -16,12 +27,7 @@ interface CalendarProps {
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const formatPeso = (amount: number) => {
-  if (amount >= 100) {
-    return `₱${amount}`;
-  }
-  return `₱${amount}`;
-};
+const formatPeso = (amount: number) => `₱${amount}`;
 
 export function Calendar({ rolls, onDateSelect, selectedDate }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -32,6 +38,8 @@ export function Calendar({ rolls, onDateSelect, selectedDate }: CalendarProps) {
   const calendarEnd = endOfWeek(monthEnd);
   
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+
+  const today = new Date();
 
   const getRollForDate = (date: Date): number | null => {
     const dateStr = format(date, "yyyy-MM-dd");
@@ -83,17 +91,18 @@ export function Calendar({ rolls, onDateSelect, selectedDate }: CalendarProps) {
           const isCurrentMonth = isSameMonth(day, currentMonth);
           const isSelected = selectedDate && isSameDay(day, selectedDate);
           const hasRoll = rollNumber !== null;
+          const isFuture = day > today;
 
           return (
             <button
               key={index}
               onClick={() => onDateSelect(day)}
-              disabled={!isCurrentMonth}
+              disabled={!isCurrentMonth || isFuture}
               className={cn(
                 "aspect-square rounded-xl flex flex-col items-center justify-center transition-all duration-200 relative overflow-hidden",
                 "text-sm font-medium",
-                !isCurrentMonth && "opacity-30 cursor-not-allowed",
-                isCurrentMonth && !hasRoll && "bg-card shadow-soft hover:shadow-glow hover:scale-105 active:scale-95",
+                (!isCurrentMonth || isFuture) && "opacity-30 cursor-not-allowed",
+                isCurrentMonth && !hasRoll && !isFuture && "bg-card shadow-soft hover:shadow-glow hover:scale-105 active:scale-95",
                 isCurrentMonth && hasRoll && "bg-primary text-primary-foreground shadow-glow",
                 isSelected && !hasRoll && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                 isSelected && hasRoll && "ring-2 ring-accent ring-offset-2 ring-offset-background"
