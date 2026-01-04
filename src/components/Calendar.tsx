@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, getDay, startOfWeek, endOfWeek } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface DailyRoll {
@@ -15,6 +15,13 @@ interface CalendarProps {
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const formatPeso = (amount: number) => {
+  if (amount >= 100) {
+    return `₱${amount}`;
+  }
+  return `₱${amount}`;
+};
 
 export function Calendar({ rolls, onDateSelect, selectedDate }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -93,14 +100,14 @@ export function Calendar({ rolls, onDateSelect, selectedDate }: CalendarProps) {
               )}
             >
               <span className={cn(
-                "text-xs",
+                "text-[10px]",
                 hasRoll ? "text-primary-foreground/70" : "text-muted-foreground"
               )}>
                 {format(day, "d")}
               </span>
               {hasRoll && (
-                <span className="text-lg font-display font-bold text-primary-foreground">
-                  {rollNumber}
+                <span className="text-xs font-display font-bold text-primary-foreground">
+                  {formatPeso(rollNumber)}
                 </span>
               )}
             </button>
