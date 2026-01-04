@@ -8,21 +8,35 @@ interface DailyRoll {
   roll_date: string;
   roll_number: number;
   created_at: string;
+  user_id?: string;
+  user_email?: string;
 }
 
 export function useDailyRolls() {
   const [rolls, setRolls] = useState<DailyRoll[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Fetch all rolls
-  const fetchRolls = useCallback(async () => {
+  // Get current user
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserId(session?.user?.id || null);
+    });
+  }, []);
+
+  // Fetch rolls for current user - REMOVE useCallback here
+  const fetchRolls = async () => {
+    if (!userId) return;
+    
     try {
       setIsLoading(true);
       const { data, error } = await supabase
         .from("daily_rolls")
         .select("*")
+        .eq("user_id", userId)
         .order("roll_date", { ascending: true });
+        
 
       if (error) throw error;
       setRolls(data || []);
@@ -34,14 +48,12 @@ export function useDailyRolls() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
-  // Get all used numbers
   const getUsedNumbers = useCallback((): Set<number> => {
     return new Set(rolls.map(r => r.roll_number));
   }, [rolls]);
 
-  // Get available numbers
   const getAvailableNumbers = useCallback((): number[] => {
     const used = getUsedNumbers();
     const available: number[] = [];
@@ -53,8 +65,12 @@ export function useDailyRolls() {
     return available;
   }, [getUsedNumbers]);
 
-  // Roll a new number for a date
   const rollNumber = useCallback(async (date: Date): Promise<number | null> => {
+    if (!userId) {
+      toast.error("You must be logged in to roll");
+      return null;
+    }
+
     const available = getAvailableNumbers();
     
     if (available.length === 0) {
@@ -62,15 +78,18 @@ export function useDailyRolls() {
       return null;
     }
 
-    // Pick a random number from available
     const randomIndex = Math.floor(Math.random() * available.length);
     const rolledNumber = available[randomIndex];
     const dateStr = format(date, "yyyy-MM-dd");
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const { data, error } = await supabase
         .from("daily_rolls")
         .insert({
+          user_id: userId,
+          user_email: session?.user?.email || null,
           roll_date: dateStr,
           roll_number: rolledNumber,
         })
@@ -78,16 +97,14 @@ export function useDailyRolls() {
         .single();
 
       if (error) {
-        // Handle unique constraint violation
         if (error.code === "23505") {
           toast.error("This date or number is already taken!");
-          await fetchRolls(); // Refresh data
+          await fetchRolls();
           return null;
         }
         throw error;
       }
 
-      // Update local state
       setRolls(prev => [...prev, data]);
       toast.success(`Rolled ${rolledNumber}!`);
       return rolledNumber;
@@ -96,19 +113,21 @@ export function useDailyRolls() {
       toast.error("Failed to save. Please try again.");
       return null;
     }
-  }, [getAvailableNumbers, fetchRolls]);
+  }, [userId, getAvailableNumbers]); // Remove fetchRolls from dependencies
 
-  // Get roll for a specific date
   const getRollForDate = useCallback((date: Date): number | null => {
     const dateStr = format(date, "yyyy-MM-dd");
     const roll = rolls.find(r => r.roll_date === dateStr);
     return roll ? roll.roll_number : null;
   }, [rolls]);
 
-  // Initial fetch
+  // Use userId as dependency instead of fetchRolls
   useEffect(() => {
-    fetchRolls();
-  }, [fetchRolls]);
+    if (userId) {
+      fetchRolls();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]); // Only depend on userId
 
   return {
     rolls,

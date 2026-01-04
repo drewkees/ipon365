@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import Ipon365Auth from "@/components/auth/Ipon365Auth";
 import { Calendar } from "@/components/Calendar";
 import { RollModal } from "@/components/RollModal";
 import { StatsBar } from "@/components/StatsBar";
 import { useDailyRolls } from "@/hooks/useDailyRolls";
-import { PiggyBank, Loader2 } from "lucide-react";
+import { PiggyBank, Loader2, LogOut } from "lucide-react";
 
 const Index = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -16,6 +20,26 @@ const Index = () => {
     getRollForDate,
     getAvailableNumbers 
   } = useDailyRolls();
+
+  // Check authentication
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user || null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
@@ -35,6 +59,21 @@ const Index = () => {
   const existingNumber = selectedDate ? getRollForDate(selectedDate) : null;
   const availableCount = getAvailableNumbers().length;
 
+  // Show loading while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  // Show login if not authenticated
+  if (!user) {
+    return <Ipon365Auth />;
+  }
+
+  // Show loading while fetching rolls
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -48,16 +87,30 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Header with Sign Out */}
       <header className="pt-8 pb-6 px-4">
-        <div className="max-w-md mx-auto text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-primary shadow-glow mb-4">
-            <PiggyBank className="w-7 h-7 text-primary-foreground" />
+        <div className="max-w-md mx-auto">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-primary shadow-glow">
+                <PiggyBank className="w-7 h-7 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-display font-bold text-foreground">
+                  Ipon365
+                </h1>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="p-2 rounded-lg hover:bg-secondary transition-colors"
+              title="Sign Out"
+            >
+              <LogOut className="w-5 h-5 text-muted-foreground" />
+            </button>
           </div>
-          <h1 className="text-3xl font-display font-bold text-foreground mb-2">
-            Ipon365
-          </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-center">
             Tap a date to roll your daily savings
           </p>
         </div>
@@ -65,10 +118,7 @@ const Index = () => {
 
       {/* Main content */}
       <main className="px-4 pb-8 space-y-6">
-        {/* Stats */}
         <StatsBar rolls={rolls} totalDays={365} />
-
-        {/* Calendar */}
         <div className="bg-card rounded-2xl shadow-soft p-4">
           <Calendar 
             rolls={rolls} 
@@ -78,7 +128,6 @@ const Index = () => {
         </div>
       </main>
 
-      {/* Roll Modal */}
       <RollModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
