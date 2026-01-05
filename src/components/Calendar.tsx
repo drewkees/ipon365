@@ -26,48 +26,44 @@ interface CalendarProps {
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 const formatPeso = (amount: number) => `₱${amount}`;
 
 export function Calendar({ rolls, onDateSelect, selectedDate }: CalendarProps) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-
   const today = new Date();
-  const currentYear = today.getFullYear(); // 🔹 current year dynamically
+  const currentYear = today.getFullYear();
 
-  // Start and end of month/week for calendar
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const calendarStart = startOfWeek(monthStart);
-  const calendarEnd = endOfWeek(monthEnd);
-
-  // Filter days to only the current year
-  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd }).filter(
-    day => day.getFullYear() === currentYear
+  const [currentMonth, setCurrentMonth] = useState(
+    new Date(currentYear, today.getMonth(), 1)
   );
 
-  // Get roll for a specific date
+  // Month boundaries
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+
+  // Calendar grid (IMPORTANT: do NOT filter days)
+  const calendarStart = startOfWeek(monthStart);
+  const calendarEnd = endOfWeek(monthEnd);
+  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+
+  // Find roll for a date
   const getRollForDate = (date: Date): number | null => {
     const dateStr = format(date, "yyyy-MM-dd");
-    const roll = rolls.find(r => {
-      const rollDate = new Date(r.roll_date);
-      return r.roll_date === dateStr && rollDate.getFullYear() === currentYear;
-    });
+    const roll = rolls.find(r => r.roll_date === dateStr);
     return roll ? roll.roll_number : null;
   };
 
-  // Navigation buttons (cannot go outside current year)
+  // Navigation (lock to current year)
   const handlePrevMonth = () => {
-    const prevMonth = subMonths(currentMonth, 1);
-    if (prevMonth.getFullYear() >= currentYear) {
-      setCurrentMonth(prevMonth);
+    const prev = subMonths(currentMonth, 1);
+    if (prev.getFullYear() === currentYear) {
+      setCurrentMonth(prev);
     }
   };
 
   const handleNextMonth = () => {
-    const nextMonth = addMonths(currentMonth, 1);
-    if (nextMonth.getFullYear() <= currentYear) {
-      setCurrentMonth(nextMonth);
+    const next = addMonths(currentMonth, 1);
+    if (next.getFullYear() === currentYear) {
+      setCurrentMonth(next);
     }
   };
 
@@ -78,34 +74,35 @@ export function Calendar({ rolls, onDateSelect, selectedDate }: CalendarProps) {
         <button
           onClick={handlePrevMonth}
           className="p-3 rounded-full bg-card shadow-soft hover:bg-secondary transition-all active:scale-95"
-          aria-label="Previous month"
         >
-          <ChevronLeft className="w-5 h-5 text-foreground" />
+          <ChevronLeft className="w-5 h-5" />
         </button>
 
-        <h2 className="text-xl font-display font-semibold text-foreground">
+        <h2 className="text-xl font-semibold">
           {format(currentMonth, "MMMM yyyy")}
         </h2>
 
         <button
           onClick={handleNextMonth}
           className="p-3 rounded-full bg-card shadow-soft hover:bg-secondary transition-all active:scale-95"
-          aria-label="Next month"
         >
-          <ChevronRight className="w-5 h-5 text-foreground" />
+          <ChevronRight className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Weekday headers */}
+      {/* Weekdays */}
       <div className="grid grid-cols-7 mb-2">
         {WEEKDAYS.map(day => (
-          <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
+          <div
+            key={day}
+            className="text-center text-xs font-medium text-muted-foreground py-2"
+          >
             {day}
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
+      {/* Calendar */}
       <div className="grid grid-cols-7 gap-1.5">
         {days.map((day, index) => {
           const rollNumber = getRollForDate(day);
@@ -113,20 +110,25 @@ export function Calendar({ rolls, onDateSelect, selectedDate }: CalendarProps) {
           const isSelected = selectedDate && isSameDay(day, selectedDate);
           const hasRoll = rollNumber !== null;
           const isFuture = day > today;
+          const isOutsideYear = day.getFullYear() !== currentYear;
 
           return (
             <button
               key={index}
               onClick={() => onDateSelect(day)}
-              disabled={!isCurrentMonth || isFuture}
+              disabled={!isCurrentMonth || isFuture || isOutsideYear}
               className={cn(
-                "aspect-square rounded-xl flex flex-col items-center justify-center transition-all duration-200 relative overflow-hidden",
+                "aspect-square rounded-xl flex flex-col items-center justify-center transition-all relative",
                 "text-sm font-medium",
-                (!isCurrentMonth || isFuture) && "opacity-30 cursor-not-allowed",
-                isCurrentMonth && !hasRoll && !isFuture && "bg-card shadow-soft hover:shadow-glow hover:scale-105 active:scale-95",
-                isCurrentMonth && hasRoll && "bg-primary text-primary-foreground shadow-glow",
-                isSelected && !hasRoll && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-                isSelected && hasRoll && "ring-2 ring-accent ring-offset-2 ring-offset-background"
+                (isFuture || isOutsideYear || !isCurrentMonth) &&
+                  "opacity-30 cursor-not-allowed",
+                isCurrentMonth && !hasRoll && !isFuture &&
+                  "bg-card shadow-soft hover:scale-105",
+                hasRoll && "bg-primary text-primary-foreground shadow-glow",
+                isSelected && !hasRoll &&
+                  "ring-2 ring-primary ring-offset-2",
+                isSelected && hasRoll &&
+                  "ring-2 ring-accent ring-offset-2"
               )}
             >
               <span className={cn(
@@ -135,8 +137,9 @@ export function Calendar({ rolls, onDateSelect, selectedDate }: CalendarProps) {
               )}>
                 {format(day, "d")}
               </span>
+
               {hasRoll && (
-                <span className="text-xs font-display font-bold text-primary-foreground">
+                <span className="text-xs font-bold">
                   {formatPeso(rollNumber)}
                 </span>
               )}
