@@ -36,7 +36,7 @@ export function useDailyRolls() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch rolls
+  // Fetch rolls - separate effect to avoid circular dependency
   useEffect(() => {
     const fetchRolls = async () => {
       if (!userId) {
@@ -66,8 +66,9 @@ export function useDailyRolls() {
     };
 
     fetchRolls();
-  }, [userId]);
+  }, [userId]); // Only depend on userId
 
+  // Refetch function for manual refresh
   const refetch = async () => {
     if (!userId) return;
     
@@ -90,59 +91,41 @@ export function useDailyRolls() {
     }
   };
 
-  const getUsedNumbers = (): Set<number> => new Set(rolls.map(r => r.roll_number));
+  const getUsedNumbers = (): Set<number> => {
+    return new Set(rolls.map(r => r.roll_number));
+  };
 
-  const getAvailableNumbers = (min = 1, max = 365): number[] => {
+  const getAvailableNumbers = (): number[] => {
     const used = getUsedNumbers();
     const available: number[] = [];
-    for (let i = min; i <= max; i++) {
-      if (!used.has(i)) available.push(i);
+    for (let i = 1; i <= 365; i++) {
+      if (!used.has(i)) {
+        available.push(i);
+      }
     }
     return available;
   };
 
-  // --- Modes ---
-  const rollLowSaver = (): number | null => {
-    const available = getAvailableNumbers(1, 100);
-    if (!available.length) return null;
-    return available[Math.floor(Math.random() * available.length)];
-  };
-
-  const rollChallenge = (): number | null => {
-    const available = getAvailableNumbers(200, 365);
-    if (!available.length) return null;
-    return available[Math.floor(Math.random() * available.length)];
-  };
-
-  // Roll a number with optional mode
-  const rollNumber = async (date: Date, mode: "normal" | "low" | "challenge" = "normal"): Promise<number | null> => {
+  const rollNumber = async (date: Date): Promise<number | null> => {
     if (!userId) {
       toast.error("You must be logged in to roll");
       return null;
     }
 
-    let rolledNumber: number | null = null;
-
-    if (mode === "low") rolledNumber = rollLowSaver();
-    else if (mode === "challenge") rolledNumber = rollChallenge();
-    else {
-      const available = getAvailableNumbers();
-      if (!available.length) {
-        toast.error("All numbers have been used!");
-        return null;
-      }
-      rolledNumber = available[Math.floor(Math.random() * available.length)];
-    }
-
-    if (rolledNumber === null) {
-      toast.error(`No numbers available for ${mode.toUpperCase()} mode!`);
+    const available = getAvailableNumbers();
+    
+    if (available.length === 0) {
+      toast.error("All numbers have been used!");
       return null;
     }
 
+    const randomIndex = Math.floor(Math.random() * available.length);
+    const rolledNumber = available[randomIndex];
     const dateStr = format(date, "yyyy-MM-dd");
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      
       const { data, error } = await supabase
         .from("daily_rolls")
         .insert({
@@ -164,7 +147,7 @@ export function useDailyRolls() {
       }
 
       setRolls(prev => [...prev, data]);
-      toast.success(`Rolled ${rolledNumber} (${mode.toUpperCase()} MODE)!`);
+      toast.success(`Rolled ${rolledNumber}!`);
       return rolledNumber;
     } catch (err) {
       console.error("Error rolling number:", err);
@@ -187,7 +170,5 @@ export function useDailyRolls() {
     getRollForDate,
     getAvailableNumbers,
     refetch,
-    rollLowSaver,
-    rollChallenge,
   };
 }

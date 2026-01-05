@@ -9,13 +9,13 @@ import { PiggyBank, Loader2, LogOut } from "lucide-react";
 
 const Index = () => {
   const [user, setUser] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false); // important
+  const [authChecked, setAuthChecked] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [rollMode, setRollMode] = useState<"normal" | "low" | "challenge">("normal");
 
   const { rolls, isLoading, rollNumber, getRollForDate, getAvailableNumbers } = useDailyRolls();
 
-  // --- Check authentication and subscribe to auth changes ---
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -27,26 +27,20 @@ const Index = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      setAuthChecked(true); // make sure authChecked is set on auth changes too
+      setAuthChecked(true);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // --- Logout ---
   const handleSignOut = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setUser(null);
-        return;
-      }
+      if (!session) { setUser(null); return; }
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setUser(null);
-    } catch (err) {
-      console.error("Logout failed:", err);
-    }
+    } catch (err) { console.error("Logout failed:", err); }
   };
 
   const handleDateSelect = (date: Date) => {
@@ -56,18 +50,18 @@ const Index = () => {
 
   const handleRoll = async (): Promise<number | null> => {
     if (!selectedDate) return null;
-    return await rollNumber(selectedDate);
+    return await rollNumber(selectedDate, rollMode);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedDate(null);
+    setRollMode("normal");
   };
 
   const existingNumber = selectedDate ? getRollForDate(selectedDate) : null;
   const availableCount = getAvailableNumbers().length;
 
-  // --- Guard render until authChecked ---
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -76,23 +70,16 @@ const Index = () => {
     );
   }
 
-  if (!user) {
-    return <Ipon365Auth />;
-  }
-
-  // --- Loading rolls ---
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground font-medium">Loading savings...</p>
-        </div>
+  if (!user) return <Ipon365Auth />;
+  if (isLoading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-4" />
+        <p className="text-muted-foreground font-medium">Loading savings...</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  // --- Main content ---
   return (
     <div className="min-h-screen bg-background">
       <header className="pt-8 pb-6 px-4">
@@ -103,9 +90,7 @@ const Index = () => {
                 <PiggyBank className="w-7 h-7 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-3xl font-display font-bold text-foreground">
-                  Ipon365
-                </h1>
+                <h1 className="text-3xl font-display font-bold text-foreground">Ipon365</h1>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
               </div>
             </div>
@@ -138,6 +123,8 @@ const Index = () => {
         onRoll={handleRoll}
         availableCount={availableCount}
         isLoading={isLoading}
+        rollMode={rollMode}
+        setRollMode={setRollMode} // pass mode setter to modal
       />
     </div>
   );

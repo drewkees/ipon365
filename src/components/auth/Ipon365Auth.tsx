@@ -247,7 +247,7 @@ export default function Ipon365Auth() {
 
             {/* Footer copyright */}
             <div className="auth-footer-note">
-                Created by DrewKees. All rights reserved.
+                Created by drewkees. All rights reserved.
             </div>
         </div>
       </div>
