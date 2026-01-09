@@ -16,26 +16,35 @@ export default function ResetPasswordPage() {
   }, []);
 
   const checkResetToken = async () => {
-    try {
-      // Check if there's a valid session from the reset link
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Check URL hash for recovery type
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const type = hashParams.get('type');
-      const accessToken = hashParams.get('access_token');
-      
-      if ((type === 'recovery' && accessToken) || session) {
-        setIsValidToken(true);
-      } else {
-        setAuthError('Invalid or expired reset link. Please request a new one.');
-      }
-    } catch (err) {
-      setAuthError('Error validating reset link.');
-    } finally {
-      setCheckingToken(false);
+  try {
+    const hashParams = new URLSearchParams(
+      window.location.hash.replace('#', '')
+    );
+
+    const access_token = hashParams.get('access_token');
+    const refresh_token = hashParams.get('refresh_token');
+    const type = hashParams.get('type');
+
+    if (type !== 'recovery' || !access_token || !refresh_token) {
+      throw new Error('Invalid or expired reset link.');
     }
-  };
+
+    // 🔑 IMPORTANT: Manually set the session
+    const { error } = await supabase.auth.setSession({
+      access_token,
+      refresh_token,
+    });
+
+    if (error) throw error;
+
+    setIsValidToken(true);
+  } catch (err) {
+    setAuthError(err.message);
+  } finally {
+    setCheckingToken(false);
+  }
+};
+
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
