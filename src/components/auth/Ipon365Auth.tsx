@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { PiggyBank, Mail, Lock, Loader2, CheckCircle2, ArrowRight } from 'lucide-react';
+import { PiggyBank, Mail, Lock, Loader2, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export default function Ipon365Auth() {
   const [user, setUser] = useState(null);
@@ -12,6 +12,7 @@ export default function Ipon365Auth() {
   const [authError, setAuthError] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -42,7 +43,8 @@ export default function Ipon365Auth() {
     setAuthError(null);
 
     try {
-        const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      const redirectUrl = window.location.origin;
+      
       if (authView === 'signup') {
         const { error } = await supabase.auth.signUp({
           email,
@@ -53,6 +55,12 @@ export default function Ipon365Auth() {
         });
         if (error) throw error;
         setEmailSent(true);
+      } else if (authView === 'reset') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${redirectUrl}/reset-password`
+        });
+        if (error) throw error;
+        setResetEmailSent(true);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -131,32 +139,78 @@ export default function Ipon365Auth() {
                   Back to Login
                 </button>
               </div>
+            ) : resetEmailSent ? (
+              <div className="success-state">
+                <div className="success-icon">
+                  <CheckCircle2 size={48} />
+                </div>
+                <h2>Reset link sent!</h2>
+                <p>We've sent a password reset link to</p>
+                <p className="email-highlight">{email}</p>
+                <p className="small-text">Click the link in your email to reset your password.</p>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setResetEmailSent(false);
+                    setAuthView('login');
+                    setEmail('');
+                    setPassword('');
+                  }}
+                >
+                  Back to Login
+                </button>
+              </div>
             ) : (
               <>
-                {/* Tabs */}
-                <div className="auth-tabs">
-                  <button 
-                    className={`tab ${authView === 'login' ? 'active' : ''}`}
-                    onClick={() => {
-                      setAuthView('login');
-                      setAuthError(null);
-                    }}
-                  >
-                    Login
-                  </button>
-                  <button 
-                    className={`tab ${authView === 'signup' ? 'active' : ''}`}
-                    onClick={() => {
-                      setAuthView('signup');
-                      setAuthError(null);
-                    }}
-                  >
-                    Sign Up
-                  </button>
-                </div>
+                {/* Tabs - only show for login/signup */}
+                {authView !== 'reset' && (
+                  <div className="auth-tabs">
+                    <button 
+                      className={`tab ${authView === 'login' ? 'active' : ''}`}
+                      onClick={() => {
+                        setAuthView('login');
+                        setAuthError(null);
+                      }}
+                    >
+                      Login
+                    </button>
+                    <button 
+                      className={`tab ${authView === 'signup' ? 'active' : ''}`}
+                      onClick={() => {
+                        setAuthView('signup');
+                        setAuthError(null);
+                      }}
+                    >
+                      Sign Up
+                    </button>
+                  </div>
+                )}
+
+                {/* Reset Password Header */}
+                {authView === 'reset' && (
+                  <div className="reset-header">
+                    <button 
+                      className="back-btn"
+                      onClick={() => {
+                        setAuthView('login');
+                        setAuthError(null);
+                        setPassword('');
+                      }}
+                    >
+                      <ArrowLeft size={20} />
+                    </button>
+                    <h2>Reset Password</h2>
+                  </div>
+                )}
 
                 {/* Form */}
                 <div className="form-container">
+                  {authView === 'reset' && (
+                    <p className="reset-description">
+                      Enter your email address and we'll send you a link to reset your password.
+                    </p>
+                  )}
+
                   <div className="input-group">
                     <Mail className="input-icon" size={20} />
                     <input
@@ -169,18 +223,20 @@ export default function Ipon365Auth() {
                     />
                   </div>
 
-                  <div className="input-group">
-                    <Lock className="input-icon" size={20} />
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter your password"
-                      className="input-field"
-                      minLength={6}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSubmit(e)}
-                    />
-                  </div>
+                  {authView !== 'reset' && (
+                    <div className="input-group">
+                      <Lock className="input-icon" size={20} />
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        className="input-field"
+                        minLength={6}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSubmit(e)}
+                      />
+                    </div>
+                  )}
 
                   {authView === 'signup' && (
                     <p className="helper-text">Password must be at least 6 characters</p>
@@ -195,7 +251,7 @@ export default function Ipon365Auth() {
                   <button 
                     className="btn btn-primary"
                     onClick={handleSubmit}
-                    disabled={authLoading || !email || !password}
+                    disabled={authLoading || !email || (authView !== 'reset' && !password)}
                   >
                     {authLoading ? (
                       <>
@@ -204,63 +260,80 @@ export default function Ipon365Auth() {
                       </>
                     ) : (
                       <>
-                        {authView === 'login' ? 'Login' : 'Create Account'}
+                        {authView === 'login' && 'Login'}
+                        {authView === 'signup' && 'Create Account'}
+                        {authView === 'reset' && 'Send Reset Link'}
                         <ArrowRight className="btn-icon" size={20} />
                       </>
                     )}
                   </button>
+
+                  {authView === 'login' && (
+                    <div className="forgot-password-container">
+                      <button 
+                        className="forgot-password-btn"
+                        onClick={() => {
+                          setAuthView('reset');
+                          setAuthError(null);
+                          setPassword('');
+                        }}
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer */}
-                <div className="auth-footer">
-                  {authView === 'login' ? (
-                    <p>
-                      Don't have an account?{' '}
-                      <button 
-                        className="link-btn"
-                        onClick={() => {
-                          setAuthView('signup');
-                          setAuthError(null);
-                        }}
-                      >
-                        Sign up free
-                      </button>
-                    </p>
-                  ) : (
-                    <p>
-                      Already have an account?{' '}
-                      <button 
-                        className="link-btn"
-                        onClick={() => {
-                          setAuthView('login');
-                          setAuthError(null);
-                        }}
-                      >
-                        Login here
-                      </button>
-                    </p>
-                  )}
-                </div>
+                {authView !== 'reset' && (
+                  <div className="auth-footer">
+                    {authView === 'login' ? (
+                      <p>
+                        Don't have an account?{' '}
+                        <button 
+                          className="link-btn"
+                          onClick={() => {
+                            setAuthView('signup');
+                            setAuthError(null);
+                          }}
+                        >
+                          Sign up free
+                        </button>
+                      </p>
+                    ) : (
+                      <p>
+                        Already have an account?{' '}
+                        <button 
+                          className="link-btn"
+                          onClick={() => {
+                            setAuthView('login');
+                            setAuthError(null);
+                          }}
+                        >
+                          Login here
+                        </button>
+                      </p>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
 
-            {/* Footer copyright */}
-            <div className="auth-footer-note">
-                Created by drewkees. All rights reserved.
-            </div>
+          {/* Footer copyright */}
+          <div className="auth-footer-note">
+            Created by drewkees. All rights reserved.
+          </div>
         </div>
       </div>
     );
   }
 
   // Logged in view - Return null to let parent component handle the main app
-  // This component only handles authentication
   return null;
 }
 
 const styles = `
-
   * {
     margin: 0;
     padding: 0;
@@ -302,12 +375,13 @@ const styles = `
     animation: float 15s infinite ease-in-out;
   }
 
-   .auth-footer-note {
+  .auth-footer-note {
     text-align: center;
     font-size: 12px;
     color: rgba(255, 255, 255, 0.6);
     margin-top: 16px;
   }
+
   .coin-1 { top: 10%; left: 10%; animation-delay: 0s; }
   .coin-2 { top: 20%; right: 15%; animation-delay: 2s; }
   .coin-3 { bottom: 30%; left: 20%; animation-delay: 4s; }
@@ -427,9 +501,51 @@ const styles = `
     border-radius: 3px 3px 0 0;
   }
 
+  /* Reset Header */
+  .reset-header {
+    padding: 24px 32px;
+    background: white;
+    border-bottom: 2px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .back-btn {
+    background: #f3f4f6;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    color: #6b7280;
+  }
+
+  .back-btn:hover {
+    background: #e5e7eb;
+    color: #1a1a1a;
+  }
+
+  .reset-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+
   /* Form */
   .form-container {
     padding: 32px;
+  }
+
+  .reset-description {
+    font-size: 14px;
+    color: #6b7280;
+    margin-bottom: 24px;
+    line-height: 1.6;
   }
 
   .input-group {
@@ -467,6 +583,27 @@ const styles = `
     font-size: 13px;
     color: #6b7280;
     margin-bottom: 20px;
+  }
+
+  .forgot-password-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 16px;
+  }
+
+  .forgot-password-btn {
+    background: none;
+    border: none;
+    color: #667eea;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.3s;
+  }
+
+  .forgot-password-btn:hover {
+    color: #764ba2;
+    text-decoration: underline;
   }
 
   .error-box {
@@ -607,40 +744,6 @@ const styles = `
     margin-bottom: 24px;
   }
 
-  /* Feature Cards */
-  .features {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-top: 24px;
-  }
-
-  .feature-card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 20px 12px;
-    text-align: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-
-  .feature-icon {
-    font-size: 32px;
-    margin-bottom: 8px;
-  }
-
-  .feature-card h3 {
-    font-size: 14px;
-    font-weight: 600;
-    color: #1a1a1a;
-    margin-bottom: 4px;
-  }
-
-  .feature-card p {
-    font-size: 12px;
-    color: #6b7280;
-  }
-
   /* Loading */
   .loading-container {
     display: flex;
@@ -660,10 +763,6 @@ const styles = `
 
   /* Responsive */
   @media (max-width: 640px) {
-    .features {
-      grid-template-columns: 1fr;
-    }
-
     .auth-card {
       border-radius: 20px;
     }
@@ -678,6 +777,10 @@ const styles = `
 
     .form-container {
       padding: 24px;
+    }
+
+    .reset-header {
+      padding: 20px 24px;
     }
   }
 `;
