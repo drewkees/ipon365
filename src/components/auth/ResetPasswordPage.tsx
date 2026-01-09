@@ -9,6 +9,7 @@ export default function ResetPasswordPage() {
   const [authLoading, setAuthLoading] = useState(false);
   const [isValidToken, setIsValidToken] = useState(false);
   const [checkingToken, setCheckingToken] = useState(true);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     checkResetToken();
@@ -61,9 +62,13 @@ export default function ResetPasswordPage() {
       // Sign out after successful password reset
       await supabase.auth.signOut();
       
-      // Redirect to login page or show success
-      alert('Password updated successfully! Redirecting to login...');
-      window.location.href = '/'; // Change this to your login route
+      // Show success modal
+      setShowSuccess(true);
+      
+      // Redirect to login after 3 seconds
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 3000);
       
     } catch (err) {
       setAuthError(err.message);
@@ -134,6 +139,24 @@ export default function ResetPasswordPage() {
   return (
     <div className="auth-page">
       <style>{styles}</style>
+      
+      {/* Success Modal */}
+      {showSuccess && (
+        <div className="success-modal-overlay">
+          <div className="success-modal">
+            <div className="success-modal-icon">
+              <CheckCircle2 size={64} />
+            </div>
+            <h2 className="success-modal-title">Password Reset Successful!</h2>
+            <p className="success-modal-text">
+              Your password has been updated successfully. You will be redirected to login shortly.
+            </p>
+            <div className="success-modal-loader">
+              <div className="loader-bar"></div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Animated background */}
       <div className="bg-animation">
@@ -563,6 +586,118 @@ const styles = `
 
     .reset-header {
       padding: 20px 24px;
+    }
+  }
+
+  /* Success Modal */
+  .success-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .success-modal {
+    background: white;
+    border-radius: 24px;
+    padding: 48px 40px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    text-align: center;
+    animation: slideUpModal 0.4s ease-out;
+  }
+
+  @keyframes slideUpModal {
+    from {
+      opacity: 0;
+      transform: translateY(30px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .success-modal-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    margin: 0 auto 24px;
+    animation: bounceIn 0.6s ease-out;
+  }
+
+  @keyframes bounceIn {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .success-modal-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 12px;
+  }
+
+  .success-modal-text {
+    font-size: 15px;
+    color: #6b7280;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+
+  .success-modal-loader {
+    width: 100%;
+    height: 4px;
+    background: #e5e7eb;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .loader-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 2px;
+    animation: loadProgress 3s linear forwards;
+  }
+
+  @keyframes loadProgress {
+    from {
+      width: 0%;
+    }
+    to {
+      width: 100%;
     }
   }
 `;
