@@ -1,5 +1,5 @@
 // src/components/AdBanner.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -8,34 +8,39 @@ declare global {
 }
 
 const AdBanner = () => {
-  const [showAd, setShowAd] = useState(false);
+  const [adVisible, setAdVisible] = useState(false);
+  const adRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    try {
-      // Check if adsbygoogle exists
-      if (!window.adsbygoogle) return;
+    if (!adRef.current) return;
 
-      window.adsbygoogle.push({});
-      // Only mark ad as visible after pushing
-      setShowAd(true);
+    try {
+      window.adsbygoogle = window.adsbygoogle || [];
+      // Only push if this <ins> does NOT already have an ad
+      if (!(adRef.current as any).__adLoaded) {
+        window.adsbygoogle.push({});
+        (adRef.current as any).__adLoaded = true;
+        setAdVisible(true);
+      }
     } catch (e) {
       console.error("Adsense push error:", e);
-      setShowAd(false);
+      setAdVisible(false);
     }
   }, []);
 
-  // Don't render anything if ad is not visible
-  if (!showAd) return null;
+  if (!adVisible) return null;
 
   return (
-    <ins
-      className="adsbygoogle block w-full h-[90px]"
-      style={{ display: "block" }}
-      data-ad-client="ca-pub-1805122572208587"
-      data-ad-slot="5068460354"
-      data-ad-format="auto"
-      data-full-width-responsive="true"
-    />
+    <div ref={adRef}>
+      <ins
+        className="adsbygoogle block w-full h-[90px]"
+        style={{ display: "block" }}
+        data-ad-client="ca-pub-1805122572208587"
+        data-ad-slot="5068460354"
+        data-ad-format="auto"
+        data-full-width-responsive="true"
+      ></ins>
+    </div>
   );
 };
 
