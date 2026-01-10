@@ -14,7 +14,7 @@ const Index = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [rollMode, setRollMode] = useState<"normal" | "low" | "challenge">("normal");
-
+  const hasAd = false;
   const { rolls, isLoading, rollNumber, getRollForDate, getAvailableNumbers } = useDailyRolls();
 
   useEffect(() => {
@@ -110,8 +110,8 @@ const Index = () => {
       </header>
 
       <main className="px-4 pb-8 space-y-6">
+         <AdBanner /> 
         <StatsBar rolls={rolls} totalDays={365} />
-        <AdBanner />
         <div className="bg-card rounded-2xl shadow-soft p-4">
           <Calendar rolls={rolls} onDateSelect={handleDateSelect} selectedDate={selectedDate} />
         </div>
