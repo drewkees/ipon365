@@ -56,10 +56,37 @@ export default function Ipon365Auth() {
         if (error) throw error;
         setEmailSent(true);
       } else if (authView === 'reset') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${redirectUrl}/reset-password`
-        });
-        if (error) throw error;
+
+        const API_URL = import.meta.env.VITE_API_URL;
+
+        const response = await fetch(`${API_URL}/api/verified-users`);
+
+        // const response = await fetch('http://localhost:3001/api/verified-users');
+
+        if (!response.ok) {
+          throw new Error('Failed to check verified users');
+        }
+
+        const result = await response.json();
+        console.log('Verified users:', result.users);
+
+        const isVerified = result.users?.some(
+          (u) => u.email.toLowerCase() === email.toLowerCase()
+        );
+
+        if (!isVerified) {
+          setAuthError('Email is not verified. Please verify your email first.');
+          return;
+        }
+
+        // ✅ Proceed with reset
+        const { error: resetError } =
+          await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password`,
+          });
+
+        if (resetError) throw resetError;
+
         setResetEmailSent(true);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
