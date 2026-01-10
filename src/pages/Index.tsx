@@ -5,7 +5,7 @@ import { Calendar } from "@/components/Calendar";
 import { RollModal } from "@/components/RollModal";
 import { StatsBar } from "@/components/StatsBar";
 import { useDailyRolls } from "@/hooks/useDailyRolls";
-import { PiggyBank, Loader2, LogOut } from "lucide-react";
+import { PiggyBank, Loader2, LogOut , Plus} from "lucide-react";
 import AdBanner from "@/components/AdBanner";
 
 const Index = () => {
@@ -115,6 +115,7 @@ const Index = () => {
         <div className="bg-card rounded-2xl shadow-soft p-4">
           <Calendar rolls={rolls} onDateSelect={handleDateSelect} selectedDate={selectedDate} />
         </div>
+        
       </main>
 
       <RollModal
@@ -128,6 +129,17 @@ const Index = () => {
         rollMode={rollMode}
         setRollMode={setRollMode} // pass mode setter to modal
       />
+
+       <button
+        onClick={() => {
+          // Add your new feature handler here
+          alert('New feature coming soon!');
+        }}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full gradient-primary shadow-glow hover:shadow-glow-lg transition-all duration-300 flex items-center justify-center group hover:scale-110"
+        title="New Feature"
+      >
+        <Plus className="w-6 h-6 text-primary-foreground group-hover:rotate-90 transition-transform duration-300" />
+      </button>
     </div>
   );
 };

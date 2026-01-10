@@ -8,6 +8,8 @@ interface CelebrationModalProps {
   onClose: () => void;
   filledDays: number;  // Number of days filled in the piggy
   totalDays: number;   // Total days to fill
+  amountSaved?: number; // Total amount saved (optional)
+  dailyAmount?: number; // Amount saved per day (optional)
 }
 
 export const CelebrationModal: React.FC<CelebrationModalProps> = ({
@@ -15,8 +17,11 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
   onClose,
   filledDays,
   totalDays,
+  amountSaved,
+  dailyAmount,
 }) => {
   const [coins, setCoins] = useState<number[]>([]);
+  const [displayAmount, setDisplayAmount] = useState(0);
 
   useEffect(() => {
     if (isOpen) {
@@ -31,6 +36,29 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
       setCoins([]);
     }
   }, [isOpen]);
+
+  // Incremental counter effect for amount
+  useEffect(() => {
+    if (isOpen && amountSaved) {
+      setDisplayAmount(0);
+      const duration = 1500; // 1.5 seconds
+      const steps = 60;
+      const increment = amountSaved / steps;
+      let currentStep = 0;
+
+      const timer = setInterval(() => {
+        currentStep++;
+        if (currentStep >= steps) {
+          setDisplayAmount(amountSaved);
+          clearInterval(timer);
+        } else {
+          setDisplayAmount(Math.floor(increment * currentStep));
+        }
+      }, duration / steps);
+
+      return () => clearInterval(timer);
+    }
+  }, [isOpen, amountSaved]);
 
   const progress = Math.min(filledDays / totalDays, 1);
 
@@ -147,6 +175,26 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
             <p className="mt-3 text-gray-700 font-bold text-lg">
               {filledDays} / {totalDays} days saved
             </p>
+
+            {/* Amount Saved - Only show if amountSaved is provided */}
+            {amountSaved !== undefined && (
+              <motion.div
+                className="mt-4 text-center"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                <p className="text-sm text-gray-500 mb-1">Total Saved</p>
+                <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
+                  ₱{displayAmount.toLocaleString()}
+                </p>
+                {dailyAmount !== undefined && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    ₱{dailyAmount.toLocaleString()} per day
+                  </p>
+                )}
+              </motion.div>
+            )}
             
             {filledDays === totalDays && (
               <motion.p
@@ -164,3 +212,33 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
     </AnimatePresence>
   );
 };
+
+// Demo Component
+export default function App() {
+  const [showModal, setShowModal] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center p-4">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-800 mb-8">
+          Savings Celebration Modal
+        </h1>
+        <button
+          onClick={() => setShowModal(true)}
+          className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-8 py-4 rounded-full font-semibold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
+        >
+          🎉 Celebrate Your Savings!
+        </button>
+      </div>
+
+      <CelebrationModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        filledDays={45}
+        totalDays={365}
+        amountSaved={45000}
+        dailyAmount={1000}
+      />
+    </div>
+  );
+}
