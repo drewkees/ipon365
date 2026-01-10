@@ -6,6 +6,7 @@ import { RollModal } from "@/components/RollModal";
 import { StatsBar } from "@/components/StatsBar";
 import { useDailyRolls } from "@/hooks/useDailyRolls";
 import { PiggyBank, Loader2, LogOut } from "lucide-react";
+import AdBanner from "@/components/AdBanner";
 
 const Index = () => {
   const [user, setUser] = useState(null);
@@ -110,6 +111,7 @@ const Index = () => {
 
       <main className="px-4 pb-8 space-y-6">
         <StatsBar rolls={rolls} totalDays={365} />
+        <AdBanner />
         <div className="bg-card rounded-2xl shadow-soft p-4">
           <Calendar rolls={rolls} onDateSelect={handleDateSelect} selectedDate={selectedDate} />
         </div>
