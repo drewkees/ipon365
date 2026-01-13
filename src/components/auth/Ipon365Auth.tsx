@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { PiggyBank, Mail, Lock, Loader2, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
 
@@ -14,6 +14,171 @@ export default function Ipon365Auth() {
   const [emailSent, setEmailSent] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
 
+  // Email suggestions state
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const [emailWarning, setEmailWarning] = useState(null);
+  const suggestionsRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Popular email providers
+  const emailDomains = [
+    'gmail.com',
+    'yahoo.com',
+    'outlook.com',
+    'hotmail.com',
+    'icloud.com',
+    'protonmail.com',
+    'aol.com',
+    'mail.com'
+  ];
+
+  // Get email suggestions based on current input
+  const getEmailSuggestions = () => {
+    if (!email || !email.includes('@')) return [];
+    
+    const [localPart, domainPart] = email.split('@');
+    if (!localPart) return [];
+    
+    // If domain part is empty or incomplete, suggest all domains
+    if (!domainPart || domainPart.length === 0) {
+      return emailDomains.map(domain => `${localPart}@${domain}`);
+    }
+    
+    // Filter domains that match the typed domain part
+    const matchingDomains = emailDomains.filter(domain => 
+      domain.toLowerCase().startsWith(domainPart.toLowerCase())
+    );
+    
+    return matchingDomains.map(domain => `${localPart}@${domain}`);
+  };
+
+  const suggestions = getEmailSuggestions();
+
+  // Handle email input change
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    
+    // Check for common typos
+    const hasTypo = validateEmailTypos(value);
+    
+    // Show suggestions if there's an @ symbol and no typo detected
+    if (value.includes('@') && !hasTypo) {
+      setShowSuggestions(true);
+      setSelectedSuggestionIndex(-1);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  // Validate common email typos
+  const validateEmailTypos = (email) => {
+    if (!email.includes('@')) {
+      setEmailWarning(null);
+      return false;
+    }
+
+    const commonTypos = [
+      { wrong: '.con', correct: '.com', message: 'Did you mean .com instead of .con?' },
+      { wrong: '.cmo', correct: '.com', message: 'Did you mean .com instead of .cmo?' },
+      { wrong: '.ocm', correct: '.com', message: 'Did you mean .com instead of .ocm?' },
+      { wrong: '.comm', correct: '.com', message: 'Did you mean .com instead of .comm?' },
+      { wrong: 'gmial', correct: 'gmail', message: 'Did you mean gmail instead of gmial?' },
+      { wrong: 'gmai.com', correct: 'gmail.com', message: 'Did you mean gmail.com?' },
+      { wrong: 'yahooo', correct: 'yahoo', message: 'Did you mean yahoo instead of yahooo?' },
+      { wrong: 'hotmial', correct: 'hotmail', message: 'Did you mean hotmail instead of hotmial?' },
+      { wrong: 'outlok', correct: 'outlook', message: 'Did you mean outlook instead of outlok?' },
+    ];
+
+    const lowerEmail = email.toLowerCase();
+    
+    for (const typo of commonTypos) {
+      if (lowerEmail.includes(typo.wrong)) {
+        const correctedEmail = email.replace(new RegExp(typo.wrong, 'gi'), typo.correct);
+        setEmailWarning({
+          message: typo.message,
+          correctedEmail: correctedEmail
+        });
+        return true;
+      }
+    }
+
+    setEmailWarning(null);
+    return false; 
+  };
+
+  // Apply suggested email correction
+  const applySuggestion = (correctedEmail) => {
+    setEmail(correctedEmail);
+    setEmailWarning(null);
+    inputRef.current?.focus();
+  };
+
+  // Handle suggestion selection
+  const selectSuggestion = (suggestion) => {
+    setEmail(suggestion);
+    setShowSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+    inputRef.current?.focus();
+  };
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === 'Enter') handleSubmit(e);
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => 
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedSuggestionIndex >= 0) {
+          selectSuggestion(suggestions[selectedSuggestionIndex]);
+        } else {
+          handleSubmit(e);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+        break;
+      case 'Tab':
+        if (selectedSuggestionIndex >= 0) {
+          e.preventDefault();
+          selectSuggestion(suggestions[selectedSuggestionIndex]);
+        } else if (suggestions.length > 0) {
+          e.preventDefault();
+          selectSuggestion(suggestions[0]);
+        }
+        break;
+    }
+  };
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target) &&
+          inputRef.current && !inputRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   useEffect(() => {
     checkUser();
     
@@ -25,6 +190,25 @@ export default function Ipon365Auth() {
       authListener?.subscription?.unsubscribe();
     };
   }, []);
+
+  const handleReset = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      setResetEmailSent(true);
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   const checkUser = async () => {
     try {
@@ -56,38 +240,7 @@ export default function Ipon365Auth() {
         if (error) throw error;
         setEmailSent(true);
       } else if (authView === 'reset') {
-
-        const API_URL = import.meta.env.VITE_API_URL;
-
-        const response = await fetch(`${API_URL}/api/verified-users`);
-
-        // const response = await fetch('http://localhost:3001/api/verified-users');
-
-        if (!response.ok) {
-          throw new Error('Failed to check verified users');
-        }
-
-        const result = await response.json();
-        console.log('Verified users:', result.users);
-
-        const isVerified = result.users?.some(
-          (u) => u.email.toLowerCase() === email.toLowerCase()
-        );
-
-        if (!isVerified) {
-          setAuthError('Email is not verified. Please verify your email first.');
-          return;
-        }
-
-        // ✅ Proceed with reset
-        const { error: resetError } =
-          await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/reset-password`,
-          });
-
-        if (resetError) throw resetError;
-
-        setResetEmailSent(true);
+        handleReset();
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -238,16 +391,53 @@ export default function Ipon365Auth() {
                     </p>
                   )}
 
-                  <div className="input-group">
+                  <div className="input-group" style={{ position: 'relative' }}>
                     <Mail className="input-icon" size={20} />
                     <input
+                      ref={inputRef}
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={handleEmailChange}
+                      onKeyDown={handleKeyDown}
                       placeholder="Enter your email"
                       className="input-field"
-                      onKeyDown={(e) => e.key === 'Enter' && handleSubmit(e)}
+                      autoComplete="off"
                     />
+                    
+                    {/* Email Typo Warning */}
+                    {emailWarning && !showSuggestions && (
+                      <div className="email-warning">
+                        <span className="warning-icon">💡</span>
+                        <span className="warning-text">{emailWarning.message}</span>
+                        <button
+                          type="button"
+                          className="fix-btn"
+                          onClick={() => applySuggestion(emailWarning.correctedEmail)}
+                        >
+                          Fix it
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Email Suggestions Dropdown */}
+                    {showSuggestions && suggestions.length > 0 && (
+                      <div ref={suggestionsRef} className="suggestions-dropdown">
+                        {suggestions.map((suggestion, index) => (
+                          <div
+                            key={suggestion}
+                            className={`suggestion-item ${index === selectedSuggestionIndex ? 'selected' : ''}`}
+                            onClick={() => selectSuggestion(suggestion)}
+                            onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                          >
+                            <Mail size={16} className="suggestion-icon" />
+                            <span className="suggestion-text">{suggestion}</span>
+                          </div>
+                        ))}
+                        <div className="suggestions-hint">
+                          Use ↑↓ to navigate, Tab or Enter to select
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {authView !== 'reset' && (
@@ -320,7 +510,7 @@ export default function Ipon365Auth() {
                         <button 
                           className="link-btn"
                           onClick={() => {
-                            setAuthView('signup');
+                            setAuthView('login');
                             setAuthError(null);
                           }}
                         >
@@ -587,6 +777,7 @@ const styles = `
     transform: translateY(-50%);
     color: #9ca3af;
     pointer-events: none;
+    z-index: 1;
   }
 
   .input-field {
@@ -604,6 +795,119 @@ const styles = `
     border-color: #667eea;
     background: white;
     box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+  }
+
+  /* Email Suggestions */
+  .suggestions-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 1000;
+    overflow: hidden;
+    animation: slideDown 0.2s ease-out;
+  }
+
+  /* Email Typo Warning */
+  .email-warning {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 2px solid #fbbf24;
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideDown 0.2s ease-out;
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.2);
+    z-index: 999;
+  }
+
+  .warning-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .warning-text {
+    flex: 1;
+    font-size: 13px;
+    color: #78350f;
+    font-weight: 500;
+  }
+
+  .fix-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .fix-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .suggestion-item {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .suggestion-item:last-of-type {
+    border-bottom: none;
+  }
+
+  .suggestion-item:hover,
+  .suggestion-item.selected {
+    background: linear-gradient(90deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+  }
+
+  .suggestion-icon {
+    color: #667eea;
+    flex-shrink: 0;
+  }
+
+  .suggestion-text {
+    font-size: 14px;
+    color: #1a1a1a;
+    font-weight: 500;
+  }
+
+  .suggestions-hint {
+    padding: 8px 16px;
+    font-size: 11px;
+    color: #9ca3af;
+    background: #f9fafb;
+    border-top: 1px solid #f3f4f6;
+    text-align: center;
   }
 
   .helper-text {
@@ -808,6 +1112,11 @@ const styles = `
 
     .reset-header {
       padding: 20px 24px;
+    }
+
+    .suggestions-dropdown {
+      max-height: 240px;
+      overflow-y: auto;
     }
   }
 `;
